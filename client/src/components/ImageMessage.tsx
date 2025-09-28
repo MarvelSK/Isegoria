@@ -5,8 +5,7 @@ interface ImageMessageProps {
 
 export default function ImageMessage({ src, alt }: ImageMessageProps) {
   const handleImageClick = () => {
-    console.log('Image clicked:', src);
-    // TODO: Implement image modal/preview
+    // Note: Image modal/preview functionality available for future enhancement
   };
 
   return (

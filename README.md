@@ -81,8 +81,7 @@ Isegoria is a modern, anonymous real-time chat platform that enables open commun
 │   ├── index.ts           # Server entry point
 │   ├── routes.ts          # API routes and WebSocket server
 │   └── storage.ts         # Data storage interface
-├── shared/                 # Shared TypeScript schemas
-└── docs/                   # Documentation files
+└── shared/                 # Shared TypeScript schemas
 ```
 
 ## 🎯 Usage
@@ -104,9 +103,9 @@ Isegoria is a modern, anonymous real-time chat platform that enables open commun
 ### Anti-Spam Protection
 
 The platform includes built-in rate limiting:
-- Maximum 10 messages per minute per user
+- Configurable message frequency limits (currently 10 messages per minute)
 - Minimum 1 second between consecutive messages
-- Visual feedback for rate limit status
+- Server-side validation and enforcement
 
 ## 🔧 Development
 
@@ -178,6 +177,16 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🗺️ Roadmap
+
+Planned enhancements for future versions:
+- **@ Mention System** - User suggestions and notifications when mentioned
+- **Image Modal** - Full-screen image preview with zoom functionality  
+- **Message Persistence** - Database storage for message history
+- **Custom Rooms** - Multiple themed chat rooms
+- **Message Reactions** - Emoji reactions to messages
+- **Dark Mode** - Theme toggle for better accessibility
 
 ## 🙏 Acknowledgments
 

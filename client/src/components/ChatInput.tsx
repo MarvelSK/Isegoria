@@ -20,7 +20,6 @@ export default function ChatInput({ onSendMessage, onSendImage, replyTo, onClear
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
-      console.log('Message sent:', message.trim());
       onSendMessage(message.trim());
       setMessage('');
       if (replyTo) onClearReply();
@@ -30,7 +29,6 @@ export default function ChatInput({ onSendMessage, onSendImage, replyTo, onClear
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      console.log('Image uploaded:', file.name);
       onSendImage(file);
       if (replyTo) onClearReply();
     }
@@ -44,16 +42,14 @@ export default function ChatInput({ onSendMessage, onSendImage, replyTo, onClear
     
     // Handle @ mentions (basic implementation)
     if (value.includes('@')) {
-      console.log('Mention detected in message');
       setIsTyping(true);
-      // TODO: Show mention suggestions
+      // Note: Mention suggestions feature available for future enhancement
     } else {
       setIsTyping(false);
     }
   };
 
   const handleImageClick = () => {
-    console.log('Image upload clicked');
     fileInputRef.current?.click();
   };
 
@@ -84,7 +80,7 @@ export default function ChatInput({ onSendMessage, onSendImage, replyTo, onClear
       {/* Anti-spam indicator */}
       {isTyping && (
         <div className="mb-2 text-xs text-muted-foreground">
-          Rate limit: {Math.max(0, 3)} messages remaining this minute
+          @ mention detected - suggestions available in future versions
         </div>
       )}
 
