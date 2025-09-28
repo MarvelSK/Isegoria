@@ -1,91 +1,154 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ClientMessage } from '@shared/schema';
+import { useToast } from '@/hooks/use-toast';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { sendMessage, uploadImage, getMessages, isApiError } from '@/lib/api';
 import ChatHeader from './ChatHeader';
-import ChatMessage, { Message } from './ChatMessage';
+import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
 interface ChatRoomProps {
   username: string;
+  sessionId: string;
 }
 
-export default function ChatRoom({ username }: ChatRoomProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [replyTo, setReplyTo] = useState<Message | undefined>();
-  const [activeUsers] = useState(Math.floor(Math.random() * 50) + 10); // Mock active users
+export default function ChatRoom({ username, sessionId }: ChatRoomProps) {
+  const [messages, setMessages] = useState<ClientMessage[]>([]);
+  const [replyTo, setReplyTo] = useState<ClientMessage | undefined>();
+  const [activeUsers, setActiveUsers] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Mock initial messages
-  useEffect(() => {
-    const initialMessages: Message[] = [
-      {
-        id: '1',
-        username: 'Welcome_Bot',
-        content: `Welcome to Isegoria, ${username}! Feel free to share your thoughts.`,
-        timestamp: new Date(Date.now() - 10 * 60 * 1000),
-        isOwn: false
-      },
-      {
-        id: '2',
-        username: 'Anonymous_Voice',
-        content: 'Great to see new people joining the conversation!',
-        timestamp: new Date(Date.now() - 8 * 60 * 1000),
-        isOwn: false
-      }
-    ];
-    setMessages(initialMessages);
-  }, [username]);
+  const { toast } = useToast();
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (content: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      username,
-      content,
-      timestamp: new Date(),
-      isOwn: true,
-      replyTo: replyTo && replyTo.content ? {
+  // Load initial messages
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const initialMessages = await getMessages(username, 20);
+        setMessages(initialMessages.reverse()); // Reverse to show oldest first
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load message history",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMessages();
+  }, [username, toast]);
+
+  // WebSocket event handlers
+  const handleNewMessage = useCallback((message: ClientMessage) => {
+    setMessages(prev => {
+      // Avoid duplicates
+      if (prev.some(m => m.id === message.id)) {
+        return prev;
+      }
+      return [...prev, message];
+    });
+  }, []);
+
+  const handleUserJoined = useCallback((joinedUsername: string, count: number) => {
+    setActiveUsers(count);
+    if (joinedUsername !== username) {
+      toast({
+        title: "User Joined",
+        description: `${joinedUsername} joined the chat`,
+      });
+    }
+  }, [username, toast]);
+
+  const handleUserLeft = useCallback((leftUsername: string, count: number) => {
+    setActiveUsers(count);
+    if (leftUsername !== username) {
+      toast({
+        title: "User Left",
+        description: `${leftUsername} left the chat`,
+      });
+    }
+  }, [username, toast]);
+
+  const handleActiveUsersUpdate = useCallback((count: number) => {
+    setActiveUsers(count);
+  }, []);
+
+  // WebSocket connection
+  const { isConnected, connectionError, reconnect } = useWebSocket({
+    username,
+    sessionId,
+    onMessage: handleNewMessage,
+    onUserJoined: handleUserJoined,
+    onUserLeft: handleUserLeft,
+    onActiveUsersUpdate: handleActiveUsersUpdate,
+  });
+
+  // Update connection status
+  useEffect(() => {
+    if (connectionError) {
+      setConnectionStatus('disconnected');
+      toast({
+        title: "Connection Error",
+        description: connectionError,
+        variant: "destructive",
+      });
+    } else if (isConnected) {
+      setConnectionStatus('connected');
+    } else {
+      setConnectionStatus('connecting');
+    }
+  }, [isConnected, connectionError, toast]);
+
+  const handleSendMessage = async (content: string) => {
+    try {
+      // The message will be broadcast via WebSocket, so we don't need to add it locally
+      await sendMessage(username, content, replyTo && replyTo.content ? {
         id: replyTo.id,
         username: replyTo.username,
         content: replyTo.content
-      } : undefined
-    };
-
-    console.log('New message sent:', newMessage);
-    setMessages(prev => [...prev, newMessage]);
-    setReplyTo(undefined);
-
-    // Simulate anti-spam delay
-    setTimeout(() => {
-      console.log('Message processed');
-    }, 100);
+      } : undefined);
+      
+      setReplyTo(undefined);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: isApiError(error) ? error.message : "Failed to send message",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSendImage = (file: File) => {
-    // Create a mock image URL (in real app, this would be uploaded to server)
-    const imageUrl = URL.createObjectURL(file);
-    
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      username,
-      image: imageUrl,
-      timestamp: new Date(),
-      isOwn: true,
-      replyTo: replyTo && replyTo.content ? {
+  const handleSendImage = async (file: File) => {
+    try {
+      // The image message will be broadcast via WebSocket
+      await uploadImage(file, username, replyTo && replyTo.content ? {
         id: replyTo.id,
         username: replyTo.username,
         content: replyTo.content
-      } : undefined
-    };
-
-    console.log('New image message sent:', file.name);
-    setMessages(prev => [...prev, newMessage]);
-    setReplyTo(undefined);
+      } : undefined);
+      
+      setReplyTo(undefined);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: isApiError(error) ? error.message : "Failed to upload image",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleReply = (message: Message) => {
+  const handleReply = (message: ClientMessage) => {
     console.log('Reply to message:', message.id);
     setReplyTo(message);
   };
@@ -95,8 +158,42 @@ export default function ChatRoom({ username }: ChatRoomProps) {
     setReplyTo(undefined);
   };
 
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="text-lg font-medium text-foreground mb-2">Loading Isegoria...</div>
+          <div className="text-sm text-muted-foreground">Connecting to the platform</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background" data-testid="page-chat-room">
+      {/* Connection status bar */}
+      {connectionStatus !== 'connected' && (
+        <div className={`px-4 py-2 text-center text-sm ${
+          connectionStatus === 'connecting' 
+            ? 'bg-yellow-100 text-yellow-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {connectionStatus === 'connecting' ? (
+            'Connecting to Isegoria...'
+          ) : (
+            <span>
+              Connection lost. 
+              <button 
+                onClick={reconnect}
+                className="ml-2 underline hover:no-underline"
+              >
+                Reconnect
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <ChatHeader activeUsers={activeUsers} />
       
@@ -104,7 +201,9 @@ export default function ChatRoom({ username }: ChatRoomProps) {
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground mt-20" data-testid="text-no-messages">
-            No messages yet. Start the conversation!
+            {connectionStatus === 'connected' 
+              ? "No messages yet. Start the conversation!" 
+              : "Loading messages..."}
           </div>
         ) : (
           messages.map((message) => (
@@ -125,6 +224,7 @@ export default function ChatRoom({ username }: ChatRoomProps) {
         replyTo={replyTo}
         onClearReply={handleClearReply}
         username={username}
+        disabled={connectionStatus !== 'connected'}
       />
     </div>
   );
