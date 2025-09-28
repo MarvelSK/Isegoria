@@ -7,9 +7,10 @@ interface NameEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (username: string) => void;
+  isLoading?: boolean;
 }
 
-export default function NameEntryModal({ isOpen, onClose, onSubmit }: NameEntryModalProps) {
+export default function NameEntryModal({ isOpen, onClose, onSubmit, isLoading = false }: NameEntryModalProps) {
   const [username, setUsername] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -49,11 +50,11 @@ export default function NameEntryModal({ isOpen, onClose, onSubmit }: NameEntryM
           
           <Button 
             type="submit"
-            disabled={!username.trim()}
+            disabled={!username.trim() || isLoading}
             className="w-full py-6 text-lg rounded-xl hover-elevate"
             data-testid="button-continue"
           >
-            Continue
+            {isLoading ? 'Registering...' : 'Continue'}
           </Button>
         </form>
       </DialogContent>

@@ -11,10 +11,12 @@ import NotFound from "@/pages/not-found";
 function IsegoriaPlatform() {
   const [currentView, setCurrentView] = useState<'landing' | 'chat'>('landing');
   const [username, setUsername] = useState<string>('');
+  const [sessionId, setSessionId] = useState<string>('');
 
-  const handleEnterChat = (enteredUsername: string) => {
-    console.log('User entering chat:', enteredUsername);
+  const handleEnterChat = (enteredUsername: string, enteredSessionId: string) => {
+    console.log('User entering chat:', enteredUsername, 'with sessionId:', enteredSessionId);
     setUsername(enteredUsername);
+    setSessionId(enteredSessionId);
     setCurrentView('chat');
   };
 
@@ -24,7 +26,7 @@ function IsegoriaPlatform() {
         {currentView === 'landing' ? (
           <LandingPage onEnterChat={handleEnterChat} />
         ) : (
-          <ChatRoom username={username} />
+          <ChatRoom username={username} sessionId={sessionId} />
         )}
       </Route>
       <Route component={NotFound} />

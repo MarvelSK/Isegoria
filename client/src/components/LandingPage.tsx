@@ -1,26 +1,45 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Info } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { registerUser, isApiError } from '@/lib/api';
 import NameEntryModal from './NameEntryModal';
 import TOSModal from './TOSModal';
 
 interface LandingPageProps {
-  onEnterChat: (username: string) => void;
+  onEnterChat: (username: string, sessionId: string) => void;
 }
 
 export default function LandingPage({ onEnterChat }: LandingPageProps) {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showTOSModal, setShowTOSModal] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const { toast } = useToast();
 
   const handleStartSpeaking = () => {
     console.log('Start Speaking clicked');
     setShowNameModal(true);
   };
 
-  const handleNameSubmit = (username: string) => {
+  const handleNameSubmit = async (username: string) => {
     console.log('Name submitted:', username);
-    setShowNameModal(false);
-    onEnterChat(username);
+    setIsRegistering(true);
+    
+    try {
+      const response = await registerUser(username);
+      console.log('User registered:', response);
+      setShowNameModal(false);
+      onEnterChat(response.user.username, response.sessionId);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      toast({
+        title: "Registration Failed",
+        description: isApiError(error) ? error.message : "Unable to register user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   const handleTOSClick = () => {
@@ -68,6 +87,7 @@ export default function LandingPage({ onEnterChat }: LandingPageProps) {
         isOpen={showNameModal}
         onClose={() => setShowNameModal(false)}
         onSubmit={handleNameSubmit}
+        isLoading={isRegistering}
       />
       
       <TOSModal 
